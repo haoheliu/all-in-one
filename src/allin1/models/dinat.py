@@ -7,7 +7,7 @@ import math
 import torch
 from abc import ABC,  abstractmethod
 from typing import Optional, Tuple, Callable
-from natten.functional import na1d_av, na1d_qk, na2d_av, na2d_qk
+from natten.functional import na1d, na2d
 from ..config import Config
 from .utils import *
 
@@ -51,7 +51,7 @@ class DinatDropPath(nn.Module):
 class _NeighborhoodAttentionNd(ABC, nn.Module):
   # rpb is learnable relative positional biases; same concept is used Swin.
   rpb: nn.Parameter
-  na1d_qk: Callable
+  na_qk: Callable
   nattendav: Callable
 
   def __init__(
@@ -94,19 +94,9 @@ class _NeighborhoodAttentionNd(ABC, nn.Module):
     # It gives identical results because scalars are commutable in matrix multiplication.
     query_layer = query_layer / math.sqrt(self.attention_head_size)
     
-    # Compute NA between "query" and "key" to get the raw attention scores, and add relative positional biases.
-    # attention_scores = natten2dqkrpb(query_layer, key_layer, self.rpb, self.dilation)
-    attention_scores = self.na_qk(query_layer, key_layer,  self.kernel_size, self.dilation, rpb=self.rpb)
-
-    # Normalize the attention scores to probabilities.
-    attention_probs = nn.functional.softmax(attention_scores, dim=-1)
-    
-    # This is actually dropping out entire tokens to attend to, which might
-    # seem a bit unusual, but is taken from the original Transformer paper.
-    attention_probs = self.dropout(attention_probs)
-    
-    # context_layer = natten2dav(attention_probs, value_layer, self.dilation)
-    context_layer = self.nattendav(attention_probs, value_layer, self.kernel_size, self.dilation)
+    # Compute neighborhood attention using the new NATTEN API
+    # The new API combines QK and AV operations into a single function
+    context_layer = self.na_qk(query_layer, key_layer, value_layer, self.kernel_size, self.dilation)
     if len(context_layer.shape) > 4:  # 2D
       context_layer = context_layer.permute(0, 2, 3, 1, 4).contiguous()
     else:  # 1D
@@ -114,7 +104,7 @@ class _NeighborhoodAttentionNd(ABC, nn.Module):
     new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
     context_layer = context_layer.view(new_context_layer_shape)
     
-    outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
+    outputs = (context_layer,)  # No attention probs in new API
     
     return outputs
   
@@ -141,8 +131,8 @@ class NeighborhoodAttention1d(_NeighborhoodAttentionNd):
       torch.zeros(num_heads, (2 * self.kernel_size - 1)),
       requires_grad=True,
     )
-    self.na_qk = na1d_qk
-    self.nattendav = na1d_av
+    self.na_qk = na1d
+    self.nattendav = na1d
 
 
 class NeighborhoodAttention2d(_NeighborhoodAttentionNd):
@@ -159,8 +149,8 @@ class NeighborhoodAttention2d(_NeighborhoodAttentionNd):
       torch.zeros(num_heads, (2 * self.kernel_size - 1), (2 * self.kernel_size - 1)),
       requires_grad=True,
     )
-    self.na_qk = na2d_qk
-    self.nattendav = na2d_av
+    self.na_qk = na2d
+    self.nattendav = na2d
 
 
 # Copied from transformers.models.nat.modeling_nat.NeighborhoodAttentionOutput

@@ -46,8 +46,8 @@ def _sonify(
   out_dir: PathLike = None,
 ) -> Tuple[NDArray, float]:
   sr = 44100
-  y = demucs.separate.load_track(result.path, 2, sr).numpy()
-  # y, sr = librosa.load(result.path, sr=None, mono=False)
+  # y = demucs.separate.load_track(result.path, 2, sr).numpy()
+  y, sr = librosa.load(result.path, sr=sr, mono=False)
 
   length = y.shape[-1]
   metronome = _sonify_metronome(result, length, sr)
@@ -59,12 +59,24 @@ def _sonify(
   if out_dir is not None:
     out_dir = mkpath(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
+    print(f"Sonification output directory: {out_dir}")
 
-    demucs.separate.save_audio(
-      wav=torch.from_numpy(mixed),
-      path=out_dir / f'{result.path.stem}.sonif{result.path.suffix}',
-      samplerate=sr,
-    )
+    # demucs.separate.save_audio(
+    #   wav=torch.from_numpy(mixed),
+    #   path=out_dir / f'{result.path.stem}.sonif{result.path.suffix}',
+    #   samplerate=sr,
+    # )
+    from scipy.io import wavfile
+    output_path = out_dir / f'{result.path.stem}.sonif.wav'
+    print(f"Saving sonification to: {output_path}")
+    # Convert to int16 format for WAV file
+    mixed = np.clip(mixed, -1, 1)
+    mixed_int16 = (mixed * 32767).astype(np.int16)
+    if mixed_int16.ndim == 1:
+        wavfile.write(str(output_path), int(sr), mixed_int16)
+    else:
+        # (channels, samples) -> (samples, channels)
+        wavfile.write(str(output_path), int(sr), mixed_int16.T)
 
   return mixed, sr
 
