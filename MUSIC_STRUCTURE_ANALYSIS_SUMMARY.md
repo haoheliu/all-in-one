@@ -6,16 +6,16 @@ The music structure analysis system is now fully functional in the `madmom` cond
 
 ### ✅ Dependencies Installed
 - **PyTorch 2.7.1** with CUDA support
-- **NATTEN 0.21.0** (Neighborhood Attention) - updated to work with new API
+- **Local NATTEN** (Neighborhood Attention) - using local implementation in `src/allin1/natten/`
 - **madmom 0.17.dev0** - for audio processing
 - **allin1 1.1.0** - the main music structure analysis package
 - **Additional libraries**: librosa, matplotlib, scipy, soundfile, etc.
 
 ### ✅ Fixed Issues
-1. **NATTEN API Compatibility**: Updated `src/allin1/models/dinat.py` to use the new NATTEN API:
-   - Changed from `na1d_av`, `na1d_qk`, `na2d_av`, `na2d_qk` to `na1d`, `na2d`
-   - Updated function calls to use the unified attention API
-   - Fixed import statements
+1. **Local NATTEN Integration**: Updated `src/allin1/models/dinat.py` to use the local NATTEN implementation:
+   - Changed import from `natten.functional` to `..natten.functional`
+   - Updated function calls to use the unified attention API (`na1d`, `na2d`)
+   - Removed dependency on pip-installed NATTEN
 
 2. **Audio Processing**: Fixed visualization and sonification modules:
    - Updated `src/allin1/visualize.py` to use librosa instead of demucs
@@ -93,5 +93,6 @@ print(f"Segments: {len(result.segments)}")
 - **Python Version**: 3.10
 - **CUDA Support**: ✅ Available
 - **GPU**: RTX 3090
+- **NATTEN**: ✅ Using local implementation (`allin1.natten.functional`)
 
 The music structure analysis system is now fully operational and ready for use! 
